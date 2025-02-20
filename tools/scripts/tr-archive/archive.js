@@ -4,7 +4,7 @@ const jsdom = require("jsdom");
 const { JSDOM } = jsdom;
 const path = require("path");
 const markedAlert = require("marked-alert");
-
+const matter = require("gray-matter");
 // Setup some options for our markdown renderer
 marked.setOptions({
   renderer: new marked.Renderer(),
@@ -34,9 +34,13 @@ marked.use(markedAlert());
 async function renderit(infile) {
   const gtag = (await fs.readFile("gtag.html", "utf-8")).trim();
   console.log(`Reading ${infile}`);
-  basename = path.basename(infile, ".md");
+  const basename = path.basename(infile, ".md");
   const outfile = path.join(path.dirname(infile), `${basename}.html`);
   let f1 = await fs.readFile(infile, "utf-8");
+  // any metadata on the file?
+  const { data, content } = matter(f1);
+
+  f1 = content; // skip the frontmatter (YAML block within ---)
 
   // oh the irony of removing a BOM before posting to unicode.org
   if (f1.charCodeAt(0) == 0xfeff) {
@@ -216,8 +220,8 @@ async function renderit(infile) {
   }
 
   // If the document requests it, linkify terms
-  if (dom.window.document.getElementById('linkify')) {
-	  linkify(dom.window.document);
+  if (data.linkify) {
+    linkify(dom.window.document);
   }
 
   // OK, done munging the DOM, write it out.
@@ -272,9 +276,11 @@ function linkify(document) {
 
   if (missing.size > 0) {
     console.log("Potentially missing definitions:");
-    Array.from(missing).sort().forEach((item) => {
-      console.log(item);
-    });
+    Array.from(missing)
+      .sort()
+      .forEach((item) => {
+        console.log(item);
+      });
   }
 
   if (terms.size === used.size) return;
